@@ -1,0 +1,72 @@
+<script src="/socket.io/socket.io.js"></script>
+<script>
+	function makeId(num) {
+	  var text = "";
+	  var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*&¨%$#@!?";
+
+	  for (var i = 0; i < num; i++)
+	    text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+	  return text;
+	}
+	let id = makeId(4);
+	let hostQ;
+	var socket = io.connect('http://localhost');
+	socket.on('bind', function () {
+		socket.emit('pair', { id: id, host: document.location.pathname.replace(/\//g,'') });
+	});
+	socket.on('paired', function (data) {
+		hostQ = data;
+	});
+	let heartbeat = () => {
+		setTimeout(() => {
+			socket.emit('heartbeat', { room: document.location.pathname.replace(/\//g,''), id: id });
+			heartbeat();
+		},1000);
+	}
+	heartbeat();
+
+	var x,y = null;
+	document.onmousemove = (event) => {
+		x = event.x;
+		y = event.y;
+	}
+
+	let pospool = () => {
+		setTimeout(() => {
+			socket.emit('pospool', { room: document.location.pathname.replace(/\//g,''), id: id, pos: {x: x, y: y} });
+			pospool();
+		},50);
+	}
+	pospool();
+
+	let clients = [];
+	socket.on('reposit', function(data) {
+		for (client in data.room) {
+			if (clients.includes(client)) {
+				let buf = document.getElementById(client);
+				buf.style.top = data.room[client].y;
+				buf.style.left = data.room[client].x;
+			} else {
+				clients.push(client);
+				let buf = document.createElement('div');
+				buf.style.width = '5px';
+				buf.style.height = '5px';
+				buf.style.backgroundColor = data.room[client].color;
+				buf.style.top = data.room[client].y;
+				buf.style.left = data.room[client].x;
+				buf.style.position = 'absolute';
+				buf.style.transition = 'all 0.05s ease'
+				buf.id = client;
+				document.body.appendChild(buf);
+			}
+		}
+	});
+
+	socket.on('removeclient', function(data) {
+		let removeth = document.getElementById(data);
+		document.body.removeChild(removeth);
+	})
+
+</script>
+<body></body>
